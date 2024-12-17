@@ -118,8 +118,6 @@ func (h *header) Update(msg tea.Msg) (*header, tea.Cmd) {
 
 		h.calculateTitleLength()
 
-		h.updater.Update()
-
 		cmds = append(cmds, h.calculateTitleLength())
 	case tea.KeyMsg:
 		switch {
@@ -132,11 +130,7 @@ func (h *header) Update(msg tea.Msg) (*header, tea.Cmd) {
 				h.currentTab = min(h.currentTab+1, len(h.headers)-1)
 			}
 		}
-
-		h.updater.Update()
 	}
-
-	cmds = append(cmds, h.calculateTitleLength())
 
 	return h, tea.Batch(cmds...)
 }
@@ -277,6 +271,7 @@ func (h *header) AddCommonHeader(key string, title string) {
 		title: title,
 	})
 	h.calculateTitleLength()
+	h.updater.Update()
 }
 
 // UpdateCommonHeader updates the header by the given key.
@@ -287,6 +282,7 @@ func (h *header) UpdateCommonHeader(key string, title string) {
 		}
 	}
 	h.calculateTitleLength()
+	h.updater.Update()
 }
 
 // DeleteCommonHeader deletes the header by the given key.
@@ -297,4 +293,5 @@ func (h *header) DeleteCommonHeader(key string) {
 		}
 	}
 	h.calculateTitleLength()
+	h.updater.Update()
 }

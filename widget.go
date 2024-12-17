@@ -116,20 +116,7 @@ func (w *widget) GetWidget(key string) *commonWidget {
 func (w *widget) DeleteAllWidgets() {
 	w.widgets = nil
 	w.calculateWidgetLength()
-}
-
-type AddNewWidget struct {
-	Key   string
-	Value string
-}
-
-type UpdateWidgetContent struct {
-	Key   string
-	Value string
-}
-
-type DeleteWidget struct {
-	Key string
+	w.updater.Update()
 }
 
 func (w *widget) addNewWidget(key, value string) {
@@ -143,8 +130,8 @@ func (w *widget) addNewWidget(key, value string) {
 		Value: value,
 	})
 
-	w.updater.Update()
 	w.calculateWidgetLength()
+	w.updater.Update()
 }
 
 func (w *widget) updateWidgetContent(key, value string) {
@@ -153,8 +140,8 @@ func (w *widget) updateWidgetContent(key, value string) {
 		x.Value = value
 	}
 
-	w.updater.Update()
 	w.calculateWidgetLength()
+	w.updater.Update()
 }
 
 func (w *widget) deleteWidget(key string) {
@@ -165,8 +152,8 @@ func (w *widget) deleteWidget(key string) {
 		}
 	}
 
-	w.updater.Update()
 	w.calculateWidgetLength()
+	w.updater.Update()
 }
 
 type WidgetSizeMsg struct {
@@ -190,19 +177,6 @@ func (w *widget) Update(msg tea.Msg) (*widget, tea.Cmd) {
 		w.viewport.Width = msg.Width
 		w.viewport.Height = msg.Height
 
-		cmds = append(cmds, w.calculateWidgetLength())
-		w.updater.Update()
-	case AddNewWidget:
-		w.addNewWidget(msg.Key, msg.Value)
-		w.updater.Update()
-		cmds = append(cmds, w.calculateWidgetLength())
-	case UpdateWidgetContent:
-		w.updateWidgetContent(msg.Key, msg.Value)
-		w.updater.Update()
-		cmds = append(cmds, w.calculateWidgetLength())
-	case DeleteWidget:
-		w.deleteWidget(msg.Key)
-		w.updater.Update()
 		cmds = append(cmds, w.calculateWidgetLength())
 	}
 

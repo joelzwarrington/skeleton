@@ -72,6 +72,14 @@ func defaultSkeletonProperties() *skeletonProperties {
 	}
 }
 
+func (s *Skeleton) TriggerUpdate() {
+	s.updater.Update()
+}
+
+func (s *Skeleton) TriggerUpdateWithMsg(msg tea.Msg) {
+	s.updater.UpdateWithMsg(msg)
+}
+
 // SetBorderColor sets the border color of the Skeleton.
 func (s *Skeleton) SetBorderColor(color string) *Skeleton {
 	s.header.SetBorderColor(color)
@@ -187,6 +195,18 @@ func (s *Skeleton) IsTabsLocked() bool {
 	return s.lockTabs
 }
 
+// AddPageMsg adds a new page to the Skeleton.
+type AddPageMsg struct {
+	// Key is unique key of the page, it is used to identify the page
+	Key string
+
+	// Title is the title of the page, it is used to show the title on the header
+	Title string
+
+	// Page is the page model, it is used to show the content of the page
+	Page tea.Model
+}
+
 // AddPage adds a new page to the Skeleton.
 func (s *Skeleton) AddPage(key string, title string, page tea.Model) *Skeleton {
 	// do not add if key already exists
@@ -199,7 +219,11 @@ func (s *Skeleton) AddPage(key string, title string, page tea.Model) *Skeleton {
 	s.header.AddCommonHeader(key, title)
 	s.pages = append(s.pages, page)
 
-	s.updater.Update()
+	s.updater.UpdateWithMsg(AddPageMsg{
+		Key:   key,
+		Title: title,
+		Page:  page,
+	})
 	return s
 }
 
@@ -212,16 +236,9 @@ func (s *Skeleton) UpdatePageTitle(key string, title string) *Skeleton {
 
 // DeletePage deletes the page by the given key.
 func (s *Skeleton) DeletePage(key string) *Skeleton {
-	s.deletePage(key)
-	s.updater.Update()
-	return s
-}
-
-// deletePage deletes the page by the given key.
-func (s *Skeleton) deletePage(key string) {
 	if len(s.pages) == 1 {
 		// skeleton should have at least one page
-		return
+		return s
 	}
 
 	// if active tab is about deleting tab, switch to the first tab
@@ -236,8 +253,11 @@ func (s *Skeleton) deletePage(key string) {
 			pages = append(pages, s.pages[i])
 		}
 	}
+
 	s.header.DeleteCommonHeader(key)
 	s.pages = pages
+	s.updater.Update()
+	return s
 }
 
 // AddWidget adds a new widget to the Skeleton.
@@ -250,17 +270,12 @@ func (s *Skeleton) AddWidget(key string, value string) *Skeleton {
 // UpdateWidgetValue updates the Value content by the given key.
 // Adds the widget if it doesn't exist.
 func (s *Skeleton) UpdateWidgetValue(key string, value string) *Skeleton {
-	go func() {
-		// if widget not exists, add it
-		if s.widget.GetWidget(key) == nil {
-			s.AddWidget(key, value)
-		}
-
-		s.widget.updateWidgetContent(key, value)
-
-		s.updater.Update()
-	}()
-
+	// if widget not exists, add it
+	if s.widget.GetWidget(key) == nil {
+		s.AddWidget(key, value)
+	}
+	s.widget.updateWidgetContent(key, value)
+	s.updater.Update()
 	return s
 }
 
@@ -371,8 +386,13 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = s.switchPage(cmds, "right")
 		}
 		cmds = s.updateSkeleton(msg, cmd, cmds)
+	case AddPageMsg:
+		cmds = append(cmds, msg.Page.Init()) // init the page
+		cmds = s.updateSkeleton(msg, cmd, cmds)
+		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
 	case UpdateMsg:
 		// do nothing, just to trigger the update
+		cmds = s.updateSkeleton(msg, cmd, cmds)
 		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
 	case HeaderSizeMsg:
 		s.termSizeNotEnoughToHandleHeaders = msg.NotEnoughToHandleHeaders
@@ -381,6 +401,7 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	default:
 		cmds = s.updateSkeleton(msg, cmd, cmds)
+		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
 	}
 
 	return s, tea.Batch(cmds...)
