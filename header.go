@@ -34,8 +34,7 @@ type header struct {
 	// titleLength is hold the length of the title
 	titleLength int
 
-	// updateChan is hold the update channel
-	updateChan chan any
+	updater *Updater
 }
 
 // newHeader returns a new header.
@@ -45,7 +44,7 @@ func newHeader() *header {
 		viewport:   newTerminalViewport(),
 		currentTab: 0,
 		keyMap:     newKeyMap(),
-		updateChan: make(chan any),
+		updater:    NewUpdater(),
 	}
 }
 
@@ -102,7 +101,7 @@ type commonHeader struct {
 }
 
 func (h *header) Init() tea.Cmd {
-	return h.Listen()
+	return nil
 }
 
 func (h *header) Update(msg tea.Msg) (*header, tea.Cmd) {
@@ -119,7 +118,7 @@ func (h *header) Update(msg tea.Msg) (*header, tea.Cmd) {
 
 		h.calculateTitleLength()
 
-		cmds = append(cmds, h.Listen())
+		cmds = append(cmds, h.calculateTitleLength())
 	case tea.KeyMsg:
 		switch {
 		case key.Matches(msg, h.keyMap.SwitchTabLeft):
@@ -131,37 +130,17 @@ func (h *header) Update(msg tea.Msg) (*header, tea.Cmd) {
 				h.currentTab = min(h.currentTab+1, len(h.headers)-1)
 			}
 		}
-
-		cmds = append(cmds, h.Listen())
 	}
 
 	return h, tea.Batch(cmds...)
-}
-
-// Listen returns the update channel.
-// It listens to the update channel and returns the message.
-// If there is no message, it waits for the message.
-func (h *header) Listen() tea.Cmd {
-	return func() tea.Msg {
-		return <-h.updateChan
-	}
 }
 
 type HeaderSizeMsg struct {
 	NotEnoughToHandleHeaders bool
 }
 
-// SendIsTerminalSizeEnough sends the terminal size is enough to print the headers.
-func (h *header) SendIsTerminalSizeEnough(isEnough bool) {
-	go func() {
-		h.updateChan <- HeaderSizeMsg{
-			NotEnoughToHandleHeaders: isEnough,
-		}
-	}()
-}
-
 // calculateTitleLength calculates the length of the title.
-func (h *header) calculateTitleLength() {
+func (h *header) calculateTitleLength() tea.Cmd {
 	var titleLen int
 	for _, hdr := range h.headers {
 		titleLen += len([]rune(hdr.title))
@@ -171,13 +150,16 @@ func (h *header) calculateTitleLength() {
 
 	requiredLineCountForLine := h.viewport.Width - (titleLen + 2)
 
-	if requiredLineCountForLine < 0 {
-		h.SendIsTerminalSizeEnough(false)
-	} else {
-		h.SendIsTerminalSizeEnough(true)
-	}
-
 	h.titleLength = titleLen
+	if requiredLineCountForLine < 0 {
+		return func() tea.Msg {
+			return HeaderSizeMsg{NotEnoughToHandleHeaders: false}
+		}
+	} else {
+		return func() tea.Msg {
+			return HeaderSizeMsg{NotEnoughToHandleHeaders: true}
+		}
+	}
 }
 
 // View renders the header.
@@ -289,6 +271,7 @@ func (h *header) AddCommonHeader(key string, title string) {
 		title: title,
 	})
 	h.calculateTitleLength()
+	h.updater.Update()
 }
 
 // UpdateCommonHeader updates the header by the given key.
@@ -299,6 +282,7 @@ func (h *header) UpdateCommonHeader(key string, title string) {
 		}
 	}
 	h.calculateTitleLength()
+	h.updater.Update()
 }
 
 // DeleteCommonHeader deletes the header by the given key.
@@ -309,4 +293,5 @@ func (h *header) DeleteCommonHeader(key string) {
 		}
 	}
 	h.calculateTitleLength()
+	h.updater.Update()
 }

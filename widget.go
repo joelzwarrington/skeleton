@@ -22,8 +22,7 @@ type widget struct {
 	// widgetLength is hold the length of the widget
 	widgetLength int
 
-	// updateChan is hold the update channel
-	updateChan chan any
+	updater *Updater
 }
 
 // newWidget returns a new Widget.
@@ -31,7 +30,7 @@ func newWidget() *widget {
 	return &widget{
 		properties: defaultWidgetProperties(),
 		viewport:   newTerminalViewport(),
-		updateChan: make(chan any),
+		updater:    NewUpdater(),
 	}
 }
 
@@ -117,26 +116,7 @@ func (w *widget) GetWidget(key string) *commonWidget {
 func (w *widget) DeleteAllWidgets() {
 	w.widgets = nil
 	w.calculateWidgetLength()
-}
-
-type AddNewWidget struct {
-	Key   string
-	Value string
-}
-
-type UpdateWidgetContent struct {
-	Key   string
-	Value string
-}
-
-type DeleteWidget struct {
-	Key string
-}
-
-func (w *widget) Listen() tea.Cmd {
-	return func() tea.Msg {
-		return <-w.updateChan
-	}
+	w.updater.Update()
 }
 
 func (w *widget) addNewWidget(key, value string) {
@@ -151,6 +131,7 @@ func (w *widget) addNewWidget(key, value string) {
 	})
 
 	w.calculateWidgetLength()
+	w.updater.Update()
 }
 
 func (w *widget) updateWidgetContent(key, value string) {
@@ -160,6 +141,7 @@ func (w *widget) updateWidgetContent(key, value string) {
 	}
 
 	w.calculateWidgetLength()
+	w.updater.Update()
 }
 
 func (w *widget) deleteWidget(key string) {
@@ -171,22 +153,15 @@ func (w *widget) deleteWidget(key string) {
 	}
 
 	w.calculateWidgetLength()
+	w.updater.Update()
 }
 
 type WidgetSizeMsg struct {
 	NotEnoughToHandleWidgets bool
 }
 
-func (w *widget) SendIsTerminalSizeEnough(isEnough bool) {
-	go func() {
-		w.updateChan <- WidgetSizeMsg{
-			NotEnoughToHandleWidgets: isEnough,
-		}
-	}()
-}
-
 func (w *widget) Init() tea.Cmd {
-	return tea.Batch(w.Listen())
+	return nil
 }
 
 func (w *widget) Update(msg tea.Msg) (*widget, tea.Cmd) {
@@ -202,25 +177,14 @@ func (w *widget) Update(msg tea.Msg) (*widget, tea.Cmd) {
 		w.viewport.Width = msg.Width
 		w.viewport.Height = msg.Height
 
-		w.calculateWidgetLength()
-
-		cmds = append(cmds, w.Listen())
-	case AddNewWidget:
-		w.addNewWidget(msg.Key, msg.Value)
-		cmds = append(cmds, w.Listen())
-	case UpdateWidgetContent:
-		w.updateWidgetContent(msg.Key, msg.Value)
-		cmds = append(cmds, w.Listen())
-	case DeleteWidget:
-		w.deleteWidget(msg.Key)
-		cmds = append(cmds, w.Listen())
+		cmds = append(cmds, w.calculateWidgetLength())
 	}
 
 	return w, tea.Batch(cmds...)
 }
 
 // calculateWidgetLength calculates the length of the widgets.
-func (w *widget) calculateWidgetLength() {
+func (w *widget) calculateWidgetLength() tea.Cmd {
 	var widgetLen int
 	for _, widget := range w.widgets {
 		widgetLen += len([]rune(widget.Value))
@@ -229,13 +193,18 @@ func (w *widget) calculateWidgetLength() {
 	}
 
 	requiredLineCount := w.viewport.Width - (widgetLen + 2)
-	if requiredLineCount < 0 {
-		w.SendIsTerminalSizeEnough(false)
-	} else {
-		w.SendIsTerminalSizeEnough(true)
-	}
 
 	w.widgetLength = widgetLen
+
+	if requiredLineCount < 0 {
+		return func() tea.Msg {
+			return WidgetSizeMsg{NotEnoughToHandleWidgets: false}
+		}
+	} else {
+		return func() tea.Msg {
+			return WidgetSizeMsg{NotEnoughToHandleWidgets: true}
+		}
+	}
 }
 
 func (w *widget) View() string {
