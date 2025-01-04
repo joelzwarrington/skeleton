@@ -17,16 +17,20 @@ import (
 // -----------------------------------------------------------------------------
 // CPU Model
 type cpuModel struct {
-	skeleton   *skeleton.Skeleton
-	usage      float64
-	lastUpdate time.Time
+	skeleton    *skeleton.Skeleton
+	usage       float64
+	lastUpdate  time.Time
+	color       string // tab color
+	borderColor string // border color
 }
 
 func newCPUModel(s *skeleton.Skeleton) *cpuModel {
 	return &cpuModel{
-		skeleton:   s,
-		usage:      0,
-		lastUpdate: time.Now(),
+		skeleton:    s,
+		usage:       0,
+		lastUpdate:  time.Now(),
+		color:       "39", // bright blue
+		borderColor: "27", // darker blue
 	}
 }
 
@@ -37,19 +41,15 @@ func (m *cpuModel) Init() tea.Cmd {
 func (m *cpuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case skeleton.UpdateMsg:
-		// Update every second
 		if time.Since(m.lastUpdate) >= time.Second {
 			if percent, err := cpu.Percent(0, false); err == nil && len(percent) > 0 {
 				m.usage = percent[0]
-
-				if m.usage > 80 {
-					m.skeleton.SetActiveTabBorderColor("196")
-				} else {
-					m.skeleton.SetActiveTabBorderColor("39")
-				}
 			}
 			m.lastUpdate = time.Now()
 		}
+	case skeleton.IAMActivePage:
+		m.skeleton.SetActiveTabBorderColor(m.color)
+		m.skeleton.SetBorderColor(m.borderColor)
 	}
 	return m, nil
 }
@@ -89,16 +89,20 @@ func (m *cpuModel) View() string {
 // -----------------------------------------------------------------------------
 // Memory Model
 type memoryModel struct {
-	skeleton   *skeleton.Skeleton
-	used       uint64
-	total      uint64
-	lastUpdate time.Time
+	skeleton    *skeleton.Skeleton
+	used        uint64
+	total       uint64
+	lastUpdate  time.Time
+	color       string // tab color
+	borderColor string // border color
 }
 
 func newMemoryModel(s *skeleton.Skeleton) *memoryModel {
 	return &memoryModel{
-		skeleton:   s,
-		lastUpdate: time.Now(),
+		skeleton:    s,
+		lastUpdate:  time.Now(),
+		color:       "162", // bright purple
+		borderColor: "126", // darker purple
 	}
 }
 
@@ -109,7 +113,6 @@ func (m *memoryModel) Init() tea.Cmd {
 func (m *memoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case skeleton.UpdateMsg:
-		// Update every second
 		if time.Since(m.lastUpdate) >= time.Second {
 			if v, err := mem.VirtualMemory(); err == nil {
 				m.used = v.Used
@@ -117,6 +120,9 @@ func (m *memoryModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.lastUpdate = time.Now()
 		}
+	case skeleton.IAMActivePage:
+		m.skeleton.SetActiveTabBorderColor(m.color)
+		m.skeleton.SetBorderColor(m.borderColor)
 	}
 	return m, nil
 }
@@ -165,16 +171,20 @@ func (m *memoryModel) View() string {
 // -----------------------------------------------------------------------------
 // Disk Model
 type diskModel struct {
-	skeleton   *skeleton.Skeleton
-	used       uint64
-	total      uint64
-	lastUpdate time.Time
+	skeleton    *skeleton.Skeleton
+	used        uint64
+	total       uint64
+	lastUpdate  time.Time
+	color       string // tab color
+	borderColor string // border color
 }
 
 func newDiskModel(s *skeleton.Skeleton) *diskModel {
 	return &diskModel{
-		skeleton:   s,
-		lastUpdate: time.Now(),
+		skeleton:    s,
+		lastUpdate:  time.Now(),
+		color:       "136", // bright gold
+		borderColor: "94",  // darker gold
 	}
 }
 
@@ -185,7 +195,6 @@ func (m *diskModel) Init() tea.Cmd {
 func (m *diskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case skeleton.UpdateMsg:
-		// Update every second
 		if time.Since(m.lastUpdate) >= time.Second {
 			if usage, err := disk.Usage("/"); err == nil {
 				m.used = usage.Used
@@ -193,6 +202,9 @@ func (m *diskModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			m.lastUpdate = time.Now()
 		}
+	case skeleton.IAMActivePage:
+		m.skeleton.SetActiveTabBorderColor(m.color)
+		m.skeleton.SetBorderColor(m.borderColor)
 	}
 	return m, nil
 }
@@ -292,6 +304,8 @@ func main() {
 	s.AddPage("cpu", "CPU", newCPUModel(s))
 	s.AddPage("memory", "Memory", newMemoryModel(s))
 	s.AddPage("disk", "Disk", newDiskModel(s))
+
+	s.SetActiveTabBorderColor("39") // dark blue
 
 	// Add widgets
 	s.AddWidget("app", "System Monitor")
