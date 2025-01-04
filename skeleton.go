@@ -238,11 +238,22 @@ func (s *Skeleton) UpdatePageTitle(key string, title string) *Skeleton {
 	return s
 }
 
+// DeletePageMsg is sent when a page is deleted
+type DeletePageMsg struct {
+	// Key is unique key of the page to be deleted
+	Key string
+}
+
 // DeletePage deletes the page by the given key.
 func (s *Skeleton) DeletePage(key string) *Skeleton {
+	s.updater.UpdateWithMsg(DeletePageMsg{Key: key})
+	return s
+}
+
+func (s *Skeleton) deleteMsg(key string) {
 	if len(s.pages) == 1 {
 		// skeleton should have at least one page
-		return s
+		return
 	}
 
 	// if active tab is about deleting tab, switch to the first tab
@@ -260,8 +271,6 @@ func (s *Skeleton) DeletePage(key string) *Skeleton {
 
 	s.header.DeleteCommonHeader(key)
 	s.pages = pages
-	s.updater.Update()
-	return s
 }
 
 // AddWidget adds a new widget to the Skeleton.
@@ -424,6 +433,13 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case WidgetSizeMsg:
 		s.termSizeNotEnoughToHandleWidgets = msg.NotEnoughToHandleWidgets
 		return s, nil
+
+	case DeletePageMsg:
+		s.deleteMsg(msg.Key)
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, s.IAMActivePageCmd())
+		cmds = append(cmds, s.updater.Listen())
+		return s, tea.Batch(cmds...)
 
 	default:
 		cmds := s.updateSkeleton(msg)
