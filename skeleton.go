@@ -20,9 +20,6 @@ type Skeleton struct {
 	// termSizeNotEnoughToHandleWidgets is control terminal size is enough to handle widgets
 	termSizeNotEnoughToHandleWidgets bool
 
-	// lockTabs is control the tabs (headers) are locked or not
-	lockTabs bool
-
 	// currentTab is hold the current tab index
 	currentTab int
 
@@ -177,8 +174,9 @@ func (s *Skeleton) SetWidgetRightPadding(padding int) *Skeleton {
 
 // LockTabs locks the tabs (headers). It prevents switching tabs. It is useful when you want to prevent switching tabs.
 func (s *Skeleton) LockTabs() *Skeleton {
-	s.header.SetLockTabs(true)
-	s.lockTabs = true
+	for _, header := range s.header.headers {
+		s.LockTab(header.key)
+	}
 	s.updater.Update()
 	return s
 }
@@ -186,7 +184,6 @@ func (s *Skeleton) LockTabs() *Skeleton {
 // UnlockTabs unlocks all tabs (both general and individual locks)
 func (s *Skeleton) UnlockTabs() *Skeleton {
 	s.header.SetLockTabs(false)
-	s.lockTabs = false
 
 	// Clear all individual tab locks
 	for _, header := range s.header.headers {
@@ -199,7 +196,7 @@ func (s *Skeleton) UnlockTabs() *Skeleton {
 
 // IsTabsLocked returns the tabs (headers) are locked or not.
 func (s *Skeleton) IsTabsLocked() bool {
-	return s.lockTabs
+	return s.header.GetLockTabs()
 }
 
 // AddPageMsg adds a new page to the Skeleton.

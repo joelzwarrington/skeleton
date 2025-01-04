@@ -13,9 +13,6 @@ type header struct {
 	// termReady is control terminal is ready or not, it responsible for the terminal size
 	termReady bool
 
-	// lockTabs is control the tabs (headers) are locked or not
-	lockTabs bool
-
 	// currentTab is hold the current tab index
 	currentTab int
 
@@ -244,12 +241,24 @@ func (h *header) SetCurrentTab(tab int) {
 
 // SetLockTabs sets the lock tabs status.
 func (h *header) SetLockTabs(lock bool) {
-	h.lockTabs = lock
+	if lock {
+		for _, header := range h.headers {
+			h.LockTab(header.key)
+		}
+	} else {
+		h.lockedTabs = make(map[string]bool)
+	}
+	h.updater.Update()
 }
 
 // GetLockTabs returns the lock tabs status.
 func (h *header) GetLockTabs() bool {
-	return h.lockTabs
+	for _, header := range h.headers {
+		if !h.IsTabLocked(header.key) {
+			return false
+		}
+	}
+	return true
 }
 
 // GetCurrentTab returns the current tab index.
