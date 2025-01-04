@@ -134,6 +134,15 @@ func main() {
 
 2. **Application Setup**: The `main` function initializes Skeleton, adds pages, and sets up widgets. The time widget updates every second to reflect the current time.
 
+## Examples
+
+The `examples` directory contains several demonstration applications:
+
+- [Fundamental Skeleton](examples/fundamental-skeleton/)
+- [System Monitor](examples/system-monitor/)
+- [News Reader](examples/news-reader/)
+- [File Reader](examples/file-reader/)
+
 ## Skeleton in the Wild
 Some programs that use Skeleton in production:
 
