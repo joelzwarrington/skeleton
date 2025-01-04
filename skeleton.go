@@ -1,11 +1,12 @@
 package skeleton
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
 )
 
 // Skeleton is a helper for rendering the Skeleton of the terminal.
@@ -18,9 +19,6 @@ type Skeleton struct {
 
 	// termSizeNotEnoughToHandleWidgets is control terminal size is enough to handle widgets
 	termSizeNotEnoughToHandleWidgets bool
-
-	// lockTabs is control the tabs (headers) are locked or not
-	lockTabs bool
 
 	// currentTab is hold the current tab index
 	currentTab int
@@ -176,23 +174,29 @@ func (s *Skeleton) SetWidgetRightPadding(padding int) *Skeleton {
 
 // LockTabs locks the tabs (headers). It prevents switching tabs. It is useful when you want to prevent switching tabs.
 func (s *Skeleton) LockTabs() *Skeleton {
-	s.header.SetLockTabs(true)
-	s.lockTabs = true
+	for _, header := range s.header.headers {
+		s.LockTab(header.key)
+	}
 	s.updater.Update()
 	return s
 }
 
-// UnlockTabs unlocks the tabs (headers). It allows switching tabs. It is useful when you want to allow switching tabs.
+// UnlockTabs unlocks all tabs (both general and individual locks)
 func (s *Skeleton) UnlockTabs() *Skeleton {
 	s.header.SetLockTabs(false)
-	s.lockTabs = false
+
+	// Clear all individual tab locks
+	for _, header := range s.header.headers {
+		s.UnlockTab(header.key)
+	}
+
 	s.updater.Update()
 	return s
 }
 
 // IsTabsLocked returns the tabs (headers) are locked or not.
 func (s *Skeleton) IsTabsLocked() bool {
-	return s.lockTabs
+	return s.header.GetLockTabs()
 }
 
 // AddPageMsg adds a new page to the Skeleton.
@@ -322,23 +326,39 @@ func (s *Skeleton) IAMActivePageCmd() tea.Cmd {
 }
 
 func (s *Skeleton) switchPage(cmds []tea.Cmd, position string) []tea.Cmd {
+	if s.IsTabsLocked() {
+		return cmds
+	}
+
+	currentTab := s.currentTab
 	switch position {
 	case "left":
-		if !s.IsTabsLocked() {
-			s.currentTab = max(s.currentTab-1, 0)
-			cmds = append(cmds, s.IAMActivePageCmd())
+		// Start from current position and move left until we find an unlocked tab
+		for nextTab := currentTab - 1; nextTab >= 0; nextTab-- {
+			if !s.IsTabLocked(s.header.headers[nextTab].key) {
+				s.currentTab = nextTab
+				s.header.SetCurrentTab(nextTab)
+				return append(cmds, s.IAMActivePageCmd())
+			}
 		}
 	case "right":
-		if !s.IsTabsLocked() {
-			s.currentTab = min(s.currentTab+1, len(s.pages)-1)
-			cmds = append(cmds, s.IAMActivePageCmd())
+		// Start from current position and move right until we find an unlocked tab
+		for nextTab := currentTab + 1; nextTab < len(s.pages); nextTab++ {
+			if !s.IsTabLocked(s.header.headers[nextTab].key) {
+				s.currentTab = nextTab
+				s.header.SetCurrentTab(nextTab)
+				return append(cmds, s.IAMActivePageCmd())
+			}
 		}
 	}
 
 	return cmds
 }
 
-func (s *Skeleton) updateSkeleton(msg tea.Msg, cmd tea.Cmd, cmds []tea.Cmd) []tea.Cmd {
+func (s *Skeleton) updateSkeleton(msg tea.Msg) []tea.Cmd {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
 	s.header, cmd = s.header.Update(msg)
 	cmds = append(cmds, cmd)
 
@@ -360,9 +380,6 @@ func (s *Skeleton) Init() tea.Cmd {
 }
 
 func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-	var cmd tea.Cmd
-
 	s.currentTab = s.header.GetCurrentTab()
 
 	switch msg := msg.(type) {
@@ -375,8 +392,10 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s.viewport.Width = msg.Width
 		s.viewport.Height = msg.Height
 
-		cmds = s.updateSkeleton(msg, cmd, cmds)
+		return s, tea.Batch(s.updateSkeleton(msg)...)
+
 	case tea.KeyMsg:
+		var cmds []tea.Cmd
 		switch {
 		case key.Matches(msg, s.KeyMap.Quit):
 			return s, tea.Quit
@@ -385,26 +404,32 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, s.KeyMap.SwitchTabRight):
 			cmds = s.switchPage(cmds, "right")
 		}
-		cmds = s.updateSkeleton(msg, cmd, cmds)
+		cmds = append(cmds, s.updateSkeleton(msg)...)
+		return s, tea.Batch(cmds...)
+
 	case AddPageMsg:
-		cmds = append(cmds, msg.Page.Init()) // init the page
-		cmds = s.updateSkeleton(msg, cmd, cmds)
-		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, msg.Page.Init(), s.updater.Listen())
+		return s, tea.Batch(cmds...)
+
 	case UpdateMsg:
-		// do nothing, just to trigger the update
-		cmds = s.updateSkeleton(msg, cmd, cmds)
-		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, s.updater.Listen())
+		return s, tea.Batch(cmds...)
+
 	case HeaderSizeMsg:
 		s.termSizeNotEnoughToHandleHeaders = msg.NotEnoughToHandleHeaders
+		return s, nil
+
 	case WidgetSizeMsg:
 		s.termSizeNotEnoughToHandleWidgets = msg.NotEnoughToHandleWidgets
+		return s, nil
 
 	default:
-		cmds = s.updateSkeleton(msg, cmd, cmds)
-		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, s.updater.Listen())
+		return s, tea.Batch(cmds...)
 	}
-
-	return s, tea.Batch(cmds...)
 }
 
 func (s *Skeleton) View() string {
@@ -436,4 +461,51 @@ func (s *Skeleton) View() string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Top, s.header.View(), base.Render(body), s.widget.View())
+}
+
+// LockTab locks a specific tab by its key
+func (s *Skeleton) LockTab(key string) *Skeleton {
+	s.header.LockTab(key)
+	s.updater.Update()
+	return s
+}
+
+// UnlockTab unlocks a specific tab by its key
+func (s *Skeleton) UnlockTab(key string) *Skeleton {
+	s.header.UnlockTab(key)
+	s.updater.Update()
+	return s
+}
+
+// IsTabLocked checks if a specific tab is locked
+func (s *Skeleton) IsTabLocked(key string) bool {
+	return s.header.IsTabLocked(key)
+}
+
+// LockTabsToTheRight locks all tabs to the right of the current tab
+func (s *Skeleton) LockTabsToTheRight() *Skeleton {
+	if s.currentTab >= len(s.header.headers)-1 {
+		return s // No tabs to the right
+	}
+
+	for i := s.currentTab + 1; i < len(s.header.headers); i++ {
+		s.LockTab(s.header.headers[i].key)
+	}
+
+	s.updater.Update()
+	return s
+}
+
+// LockTabsToTheLeft locks all tabs to the left of the current tab
+func (s *Skeleton) LockTabsToTheLeft() *Skeleton {
+	if s.currentTab <= 0 {
+		return s // No tabs to the left
+	}
+
+	for i := 0; i < s.currentTab; i++ {
+		s.LockTab(s.header.headers[i].key)
+	}
+
+	s.updater.Update()
+	return s
 }
