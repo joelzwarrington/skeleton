@@ -1,11 +1,12 @@
 package skeleton
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
 )
 
 // Skeleton is a helper for rendering the Skeleton of the terminal.
@@ -182,10 +183,16 @@ func (s *Skeleton) LockTabs() *Skeleton {
 	return s
 }
 
-// UnlockTabs unlocks the tabs (headers). It allows switching tabs. It is useful when you want to allow switching tabs.
+// UnlockTabs unlocks all tabs (both general and individual locks)
 func (s *Skeleton) UnlockTabs() *Skeleton {
 	s.header.SetLockTabs(false)
 	s.lockTabs = false
+
+	// Clear all individual tab locks
+	for _, header := range s.header.headers {
+		s.UnlockTab(header.key)
+	}
+
 	s.updater.Update()
 	return s
 }
@@ -322,16 +329,29 @@ func (s *Skeleton) IAMActivePageCmd() tea.Cmd {
 }
 
 func (s *Skeleton) switchPage(cmds []tea.Cmd, position string) []tea.Cmd {
+	if s.IsTabsLocked() {
+		return cmds
+	}
+
+	currentTab := s.currentTab
 	switch position {
 	case "left":
-		if !s.IsTabsLocked() {
-			s.currentTab = max(s.currentTab-1, 0)
-			cmds = append(cmds, s.IAMActivePageCmd())
+		// Start from current position and move left until we find an unlocked tab
+		for nextTab := currentTab - 1; nextTab >= 0; nextTab-- {
+			if !s.IsTabLocked(s.header.headers[nextTab].key) {
+				s.currentTab = nextTab
+				s.header.SetCurrentTab(nextTab)
+				return append(cmds, s.IAMActivePageCmd())
+			}
 		}
 	case "right":
-		if !s.IsTabsLocked() {
-			s.currentTab = min(s.currentTab+1, len(s.pages)-1)
-			cmds = append(cmds, s.IAMActivePageCmd())
+		// Start from current position and move right until we find an unlocked tab
+		for nextTab := currentTab + 1; nextTab < len(s.pages); nextTab++ {
+			if !s.IsTabLocked(s.header.headers[nextTab].key) {
+				s.currentTab = nextTab
+				s.header.SetCurrentTab(nextTab)
+				return append(cmds, s.IAMActivePageCmd())
+			}
 		}
 	}
 
@@ -436,4 +456,51 @@ func (s *Skeleton) View() string {
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Top, s.header.View(), base.Render(body), s.widget.View())
+}
+
+// LockTab locks a specific tab by its key
+func (s *Skeleton) LockTab(key string) *Skeleton {
+	s.header.LockTab(key)
+	s.updater.Update()
+	return s
+}
+
+// UnlockTab unlocks a specific tab by its key
+func (s *Skeleton) UnlockTab(key string) *Skeleton {
+	s.header.UnlockTab(key)
+	s.updater.Update()
+	return s
+}
+
+// IsTabLocked checks if a specific tab is locked
+func (s *Skeleton) IsTabLocked(key string) bool {
+	return s.header.IsTabLocked(key)
+}
+
+// LockTabsToTheRight locks all tabs to the right of the current tab
+func (s *Skeleton) LockTabsToTheRight() *Skeleton {
+	if s.currentTab >= len(s.header.headers)-1 {
+		return s // No tabs to the right
+	}
+
+	for i := s.currentTab + 1; i < len(s.header.headers); i++ {
+		s.LockTab(s.header.headers[i].key)
+	}
+
+	s.updater.Update()
+	return s
+}
+
+// LockTabsToTheLeft locks all tabs to the left of the current tab
+func (s *Skeleton) LockTabsToTheLeft() *Skeleton {
+	if s.currentTab <= 0 {
+		return s // No tabs to the left
+	}
+
+	for i := 0; i < s.currentTab; i++ {
+		s.LockTab(s.header.headers[i].key)
+	}
+
+	s.updater.Update()
+	return s
 }

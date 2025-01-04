@@ -1,11 +1,11 @@
 package skeleton
 
 import (
-	"github.com/charmbracelet/bubbles/key"
+	"strings"
+
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"strings"
 )
 
 // header is a helper for rendering the header of the terminal.
@@ -35,6 +35,9 @@ type header struct {
 	titleLength int
 
 	updater *Updater
+
+	// lockedTabs holds the keys of individually locked tabs
+	lockedTabs map[string]bool
 }
 
 // newHeader returns a new header.
@@ -45,6 +48,7 @@ func newHeader() *header {
 		currentTab: 0,
 		keyMap:     newKeyMap(),
 		updater:    NewUpdater(),
+		lockedTabs: make(map[string]bool),
 	}
 }
 
@@ -119,17 +123,6 @@ func (h *header) Update(msg tea.Msg) (*header, tea.Cmd) {
 		h.calculateTitleLength()
 
 		cmds = append(cmds, h.calculateTitleLength())
-	case tea.KeyMsg:
-		switch {
-		case key.Matches(msg, h.keyMap.SwitchTabLeft):
-			if !h.GetLockTabs() {
-				h.currentTab = max(h.currentTab-1, 0)
-			}
-		case key.Matches(msg, h.keyMap.SwitchTabRight):
-			if !h.GetLockTabs() {
-				h.currentTab = min(h.currentTab+1, len(h.headers)-1)
-			}
-		}
 	}
 
 	return h, tea.Batch(cmds...)
@@ -183,7 +176,7 @@ func (h *header) View() string {
 		if i == h.currentTab {
 			renderedTitles = append(renderedTitles, h.properties.titleStyleActive.Render(hdr.title))
 		} else {
-			if h.GetLockTabs() {
+			if h.GetLockTabs() || h.IsTabLocked(hdr.key) {
 				renderedTitles = append(renderedTitles, h.properties.titleStyleDisabled.Render(hdr.title))
 			} else {
 				renderedTitles = append(renderedTitles, h.properties.titleStyleInactive.Render(hdr.title))
@@ -293,5 +286,22 @@ func (h *header) DeleteCommonHeader(key string) {
 		}
 	}
 	h.calculateTitleLength()
+	h.updater.Update()
+}
+
+// IsTabLocked checks if a specific tab is locked
+func (h *header) IsTabLocked(key string) bool {
+	return h.lockedTabs[key]
+}
+
+// LockTab locks a specific tab by its key
+func (h *header) LockTab(key string) {
+	h.lockedTabs[key] = true
+	h.updater.Update()
+}
+
+// UnlockTab unlocks a specific tab by its key
+func (h *header) UnlockTab(key string) {
+	delete(h.lockedTabs, key)
 	h.updater.Update()
 }
