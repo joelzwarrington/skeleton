@@ -136,21 +136,12 @@ func main() {
 
 ## Examples
 
-The `examples` directory contains several demonstration applications:
-
-- [Fundamental Skeleton](examples/fundamental-skeleton/)
-- [System Monitor](examples/system-monitor/)
-- [News Reader](examples/news-reader/)
-- [File Reader](examples/file-reader/)
+The `examples` directory contains several demonstration applications. See [examples](examples) for more details.
 
 ## Skeleton in the Wild
 Some programs that use Skeleton in production:
 
-- [gama](https://github.com/termkit/gama): Manage your GitHub Actions from Terminal with great UI 🧪
-
-## Documentation
-
-For more detailed documentation and additional examples, please refer to the [Wiki](https://github.com/termkit/skeleton/wiki) or the [Documentation](https://github.com/termkit/skeleton/docs).
+- [gama](https://github.com/termkit/gama) - Manage your GitHub Actions from Terminal with great UI 🧪
 
 ## Contributing
 
