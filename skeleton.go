@@ -443,24 +443,36 @@ func (s *Skeleton) View() string {
 		return "terminal size is not enough to show widgets"
 	}
 
+	// Calculate available height for body
+	headerHeight := lipgloss.Height(s.header.View())
+	widgetHeight := 0
+	if len(s.widget.widgets) > 0 {
+		widgetHeight = lipgloss.Height(s.widget.View())
+	}
+
+	bodyHeight := s.viewport.Height - headerHeight - widgetHeight
+
+	// Style for the body content
 	base := lipgloss.NewStyle().
 		BorderForeground(lipgloss.Color(s.properties.borderColor)).
 		Align(s.properties.pagePosition).
 		Border(lipgloss.RoundedBorder()).
 		BorderTop(false).BorderBottom(false).
-		Width(s.viewport.Width - 2)
+		Width(s.viewport.Width - 2).
+		MaxHeight(bodyHeight)
 
+	// Get body content
 	body := s.pages[s.currentTab].View()
 
-	bodyHeight := s.viewport.Height - 5 // for header height and Value height
-	if len(s.widget.widgets) > 0 {
-		bodyHeight -= 1
-	}
+	// Add padding if content is shorter than available height
 	if lipgloss.Height(body) < bodyHeight {
 		body += strings.Repeat("\n", bodyHeight-lipgloss.Height(body))
 	}
 
-	return lipgloss.JoinVertical(lipgloss.Top, s.header.View(), base.Render(body), s.widget.View())
+	return lipgloss.JoinVertical(lipgloss.Top,
+		s.header.View(),
+		base.Render(body),
+		s.widget.View())
 }
 
 // LockTab locks a specific tab by its key
