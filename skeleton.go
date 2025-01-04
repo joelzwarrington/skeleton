@@ -358,7 +358,10 @@ func (s *Skeleton) switchPage(cmds []tea.Cmd, position string) []tea.Cmd {
 	return cmds
 }
 
-func (s *Skeleton) updateSkeleton(msg tea.Msg, cmd tea.Cmd, cmds []tea.Cmd) []tea.Cmd {
+func (s *Skeleton) updateSkeleton(msg tea.Msg) []tea.Cmd {
+	var cmds []tea.Cmd
+	var cmd tea.Cmd
+
 	s.header, cmd = s.header.Update(msg)
 	cmds = append(cmds, cmd)
 
@@ -380,9 +383,6 @@ func (s *Skeleton) Init() tea.Cmd {
 }
 
 func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var cmds []tea.Cmd
-	var cmd tea.Cmd
-
 	s.currentTab = s.header.GetCurrentTab()
 
 	switch msg := msg.(type) {
@@ -395,8 +395,10 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		s.viewport.Width = msg.Width
 		s.viewport.Height = msg.Height
 
-		cmds = s.updateSkeleton(msg, cmd, cmds)
+		return s, tea.Batch(s.updateSkeleton(msg)...)
+
 	case tea.KeyMsg:
+		var cmds []tea.Cmd
 		switch {
 		case key.Matches(msg, s.KeyMap.Quit):
 			return s, tea.Quit
@@ -405,26 +407,32 @@ func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case key.Matches(msg, s.KeyMap.SwitchTabRight):
 			cmds = s.switchPage(cmds, "right")
 		}
-		cmds = s.updateSkeleton(msg, cmd, cmds)
+		cmds = append(cmds, s.updateSkeleton(msg)...)
+		return s, tea.Batch(cmds...)
+
 	case AddPageMsg:
-		cmds = append(cmds, msg.Page.Init()) // init the page
-		cmds = s.updateSkeleton(msg, cmd, cmds)
-		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, msg.Page.Init(), s.updater.Listen())
+		return s, tea.Batch(cmds...)
+
 	case UpdateMsg:
-		// do nothing, just to trigger the update
-		cmds = s.updateSkeleton(msg, cmd, cmds)
-		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, s.updater.Listen())
+		return s, tea.Batch(cmds...)
+
 	case HeaderSizeMsg:
 		s.termSizeNotEnoughToHandleHeaders = msg.NotEnoughToHandleHeaders
+		return s, nil
+
 	case WidgetSizeMsg:
 		s.termSizeNotEnoughToHandleWidgets = msg.NotEnoughToHandleWidgets
+		return s, nil
 
 	default:
-		cmds = s.updateSkeleton(msg, cmd, cmds)
-		cmds = append(cmds, s.updater.Listen()) // listen to the update channel
+		cmds := s.updateSkeleton(msg)
+		cmds = append(cmds, s.updater.Listen())
+		return s, tea.Batch(cmds...)
 	}
-
-	return s, tea.Batch(cmds...)
 }
 
 func (s *Skeleton) View() string {
