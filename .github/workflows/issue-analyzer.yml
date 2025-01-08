@@ -1,0 +1,36 @@
+name: Issue Analyzer
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  analyze:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          repository: canack/issue-analyzer
+          token: ${{ secrets.ANALYZER_PAT }}
+          path: .issue-analyzer
+      
+      - name: Build and run analyzer
+        working-directory: .issue-analyzer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_EVENT_PATH: ${{ github.event_path }}
+          TARGET_REPO_OWNER: "termkit"
+          TARGET_REPO_NAME: "skeleton"
+        run: |
+          docker build -t issue-analyzer .
+          docker run --rm \
+            -e GITHUB_TOKEN \
+            -e OPENAI_API_KEY \
+            -e GITHUB_EVENT_PATH \
+            -e TARGET_REPO_OWNER \
+            -e TARGET_REPO_NAME \
+            -v $GITHUB_EVENT_PATH:$GITHUB_EVENT_PATH \
+            issue-analyzer 
