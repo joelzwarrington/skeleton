@@ -1,4 +1,4 @@
-name: Issue Analyzer
+name: Issue Assistant
 on:
   issues:
     types: [opened]
@@ -10,27 +10,27 @@ jobs:
       issues: write
       contents: read
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
-          repository: canack/issue-analyzer
+          repository: canack/issue-assistant
           token: ${{ secrets.ANALYZER_PAT }}
-          path: .issue-analyzer
+          path: .issue-assistant
       
-      - name: Build and run analyzer
-        working-directory: .issue-analyzer
+      - name: Build and run assistant
+        working-directory: .issue-assistant
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          AI_TYPE: "openai"  # or "claude"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
-          TARGET_REPO_OWNER: "termkit"
-          TARGET_REPO_NAME: "skeleton"
         run: |
-          docker build -t issue-analyzer .
+          docker build -t issue-assistant .
           docker run --rm \
             -e GITHUB_TOKEN \
+            -e AI_TYPE \
             -e OPENAI_API_KEY \
+            -e CLAUDE_API_KEY \
             -e GITHUB_EVENT_PATH \
-            -e TARGET_REPO_OWNER \
-            -e TARGET_REPO_NAME \
-            -v $GITHUB_EVENT_PATH:$GITHUB_EVENT_PATH \
-            issue-analyzer 
+            -v ${GITHUB_EVENT_PATH}:${GITHUB_EVENT_PATH} \
+            issue-assistant
