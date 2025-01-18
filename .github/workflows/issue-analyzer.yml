@@ -20,7 +20,7 @@ jobs:
         working-directory: .issue-assistant
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          AI_TYPE: "openai"  # or "claude"
+          AI_TYPE: "claude"  # or "claude"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
           ENABLE_COMMENT: true
