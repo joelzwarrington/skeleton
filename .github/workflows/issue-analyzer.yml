@@ -23,6 +23,8 @@ jobs:
           AI_TYPE: "openai"  # or "claude"
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          ENABLE_COMMENT: true
+          ENABLE_LABEL: true
           GITHUB_EVENT_PATH: ${{ github.event_path }}
         run: |
           docker build -t issue-assistant .
@@ -31,6 +33,8 @@ jobs:
             -e AI_TYPE \
             -e OPENAI_API_KEY \
             -e CLAUDE_API_KEY \
+            -e ENABLE_COMMENT \
+            -e ENABLE_LABEL \
             -e GITHUB_EVENT_PATH \
             -v ${GITHUB_EVENT_PATH}:${GITHUB_EVENT_PATH} \
             issue-assistant
