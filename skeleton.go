@@ -385,7 +385,7 @@ func (s *Skeleton) Init() tea.Cmd {
 		panic("skeleton: no pages added, please add at least one page")
 	}
 
-	return tea.Batch(s.updater.Listen(), s.header.Init(), s.widget.Init())
+	return tea.Batch(tea.EnterAltScreen, s.updater.Listen(), s.header.Init(), s.widget.Init())
 }
 
 func (s *Skeleton) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
