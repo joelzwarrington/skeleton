@@ -69,7 +69,7 @@ func defaultHeaderProperties() *headerProperties {
 		leftTabPadding:  leftPadding,
 		rightTabPadding: rightPadding,
 		titleStyleActive: func() lipgloss.Style {
-			b := lipgloss.DoubleBorder()
+			b := lipgloss.Border()
 			b.Right = "├"
 			b.Left = "┤"
 			return lipgloss.NewStyle().BorderStyle(b).
