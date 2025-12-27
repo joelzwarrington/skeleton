@@ -461,12 +461,9 @@ func (s *Skeleton) View() string {
 
 	// Calculate available height for body
 	headerHeight := lipgloss.Height(s.header.View())
-	widgetHeight := 0
-	if len(s.widget.widgets) > 0 {
-		widgetHeight = lipgloss.Height(s.widget.View())
-	}
+	footerHeight := lipgloss.Height(s.widget.View())
 
-	bodyHeight := s.viewport.Height - headerHeight - widgetHeight
+	bodyHeight := s.viewport.Height - headerHeight - footerHeight
 
 	// Style for the body content
 	base := lipgloss.NewStyle().
