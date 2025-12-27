@@ -60,6 +60,7 @@ func NewSkeleton() *Skeleton {
 type skeletonProperties struct {
 	borderColor  string
 	pagePosition lipgloss.Position
+	wrapTabs     bool
 }
 
 // defaultSkeletonProperties returns the default properties of the Skeleton.
@@ -67,6 +68,7 @@ func defaultSkeletonProperties() *skeletonProperties {
 	return &skeletonProperties{
 		borderColor:  "39",
 		pagePosition: lipgloss.Center,
+		wrapTabs:     false,
 	}
 }
 
@@ -100,6 +102,13 @@ func (s *Skeleton) GetWidgetBorderColor() string {
 // SetPagePosition sets the position of the page.
 func (s *Skeleton) SetPagePosition(position lipgloss.Position) *Skeleton {
 	s.properties.pagePosition = position
+	s.updater.Update()
+	return s
+}
+
+// SetWrapTabs enables or disables tab wrapping when switching tabs.
+func (s *Skeleton) SetWrapTabs(wrap bool) *Skeleton {
+	s.properties.wrapTabs = wrap
 	s.updater.Update()
 	return s
 }
@@ -340,23 +349,35 @@ func (s *Skeleton) switchPage(cmds []tea.Cmd, position string) []tea.Cmd {
 	}
 
 	currentTab := s.currentTab
+	totalTabs := len(s.pages)
+	
 	switch position {
 	case "left":
 		// Start from current position and move left until we find an unlocked tab
-		for nextTab := currentTab - 1; nextTab >= 0; nextTab-- {
+		for i := 0; i < totalTabs; i++ {
+			nextTab := (currentTab - 1 - i + totalTabs) % totalTabs
 			if !s.IsTabLocked(s.header.headers[nextTab].key) {
 				s.currentTab = nextTab
 				s.header.SetCurrentTab(nextTab)
 				return append(cmds, s.IAMActivePageCmd())
 			}
+			// If wrapping is disabled and we've gone past the beginning, stop
+			if !s.properties.wrapTabs && nextTab > currentTab {
+				break
+			}
 		}
 	case "right":
 		// Start from current position and move right until we find an unlocked tab
-		for nextTab := currentTab + 1; nextTab < len(s.pages); nextTab++ {
+		for i := 0; i < totalTabs; i++ {
+			nextTab := (currentTab + 1 + i) % totalTabs
 			if !s.IsTabLocked(s.header.headers[nextTab].key) {
 				s.currentTab = nextTab
 				s.header.SetCurrentTab(nextTab)
 				return append(cmds, s.IAMActivePageCmd())
+			}
+			// If wrapping is disabled and we've gone past the end, stop
+			if !s.properties.wrapTabs && nextTab < currentTab {
+				break
 			}
 		}
 	}
