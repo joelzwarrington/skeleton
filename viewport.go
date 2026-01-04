@@ -1,8 +1,10 @@
 package skeleton
 
 import (
-	"github.com/charmbracelet/bubbles/viewport"
 	"sync"
+
+	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // --------------------------------------------
@@ -44,4 +46,16 @@ func (s *Skeleton) GetTerminalWidth() int {
 // GetTerminalHeight returns the height of the terminal.
 func (s *Skeleton) GetTerminalHeight() int {
 	return vp.Height
+}
+
+// GetContentWidth returns the available width for content (terminal width minus borders).
+func (s *Skeleton) GetContentWidth() int {
+	return vp.Width - 2
+}
+
+// GetContentHeight returns the available height for content (terminal height minus header and widgets).
+func (s *Skeleton) GetContentHeight() int {
+	headerHeight := lipgloss.Height(s.header.View())
+	footerHeight := lipgloss.Height(s.widget.View())
+	return vp.Height - headerHeight - footerHeight
 }
